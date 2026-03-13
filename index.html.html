@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VibeCheck – Song & Caption AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f; --surface: #13131a; --surface2: #1c1c26;
+    --accent: #ff3cac; --accent2: #784ba0; --accent3: #2b86c5;
+    --neon: #00f5ff; --gold: #ffd700; --text: #f0f0f8; --muted: #7a7a9a;
+    --border: rgba(255,255,255,0.07);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; min-height:100vh; overflow-x:hidden; }
+  body::before { content:''; position:fixed; inset:0;
+    background: radial-gradient(ellipse 60% 50% at 20% 10%, rgba(255,60,172,.12) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 40% at 80% 90%, rgba(43,134,197,.12) 0%, transparent 60%),
+                radial-gradient(ellipse 40% 30% at 60% 40%, rgba(120,75,160,.08) 0%, transparent 50%);
+    pointer-events:none; z-index:0; }
+  .container { position:relative; z-index:1; max-width:900px; margin:0 auto; padding:20px; }
+  header { text-align:center; padding:40px 0 30px; }
+  .logo { font-family:'Bebas Neue',cursive; font-size:clamp(52px,10vw,88px); letter-spacing:4px;
+    background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 40%,var(--accent3) 100%);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1; }
+  .tagline { font-family:'Space Mono',monospace; font-size:12px; color:var(--muted); letter-spacing:3px; text-transform:uppercase; margin-top:8px; }
+
+  .section-label { font-family:'Space Mono',monospace; font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--muted); margin-bottom:14px; }
+
+  /* Vibe buttons */
+  .flex-wrap { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:28px; }
+  .vibe-btn { padding:10px 20px; border-radius:100px; border:1.5px solid var(--border); background:var(--surface); color:var(--muted); font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500; cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:7px; user-select:none; }
+  .vibe-btn:hover { border-color:rgba(255,60,172,.4); color:var(--text); transform:translateY(-1px); }
+  .vibe-btn.active { background:linear-gradient(135deg,rgba(255,60,172,.2),rgba(120,75,160,.2)); border-color:var(--accent); color:var(--text); box-shadow:0 0 16px rgba(255,60,172,.25); }
+
+  /* Language buttons */
+  .lang-btn { padding:12px 18px; border-radius:14px; border:1.5px solid var(--border); background:var(--surface); color:var(--muted); font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500; cursor:pointer; transition:all .22s; display:flex; align-items:center; gap:8px; user-select:none; }
+  .lang-btn .flag { font-size:20px; line-height:1; }
+  .lang-btn:hover { border-color:rgba(0,245,255,.45); color:var(--text); transform:translateY(-2px); }
+  .lang-btn.active { background:linear-gradient(135deg,rgba(0,245,255,.12),rgba(43,134,197,.18)); border-color:var(--neon); color:var(--text); box-shadow:0 0 18px rgba(0,245,255,.2); }
+  .lang-btn[data-lang="mix"] { border-style:dashed; }
+  .lang-btn[data-lang="mix"].active { background:linear-gradient(135deg,rgba(255,60,172,.15),rgba(0,245,255,.15),rgba(255,215,0,.1)); border-color:var(--gold); border-style:solid; box-shadow:0 0 18px rgba(255,215,0,.2); }
+  .mix-label { background:linear-gradient(90deg,var(--accent),var(--neon),var(--gold)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; font-weight:700; }
+
+  /* Upload */
+  .upload-zone { border:2px dashed var(--border); border-radius:20px; background:var(--surface); padding:50px 30px; text-align:center; cursor:pointer; transition:all .3s; position:relative; overflow:hidden; margin-bottom:28px; }
+  .upload-zone::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,60,172,.05),rgba(43,134,197,.05)); opacity:0; transition:opacity .3s; }
+  .upload-zone:hover::before, .upload-zone.drag-over::before { opacity:1; }
+  .upload-zone:hover, .upload-zone.drag-over { border-color:rgba(255,60,172,.5); transform:translateY(-2px); }
+  .upload-zone input { display:none; }
+  .upload-icon { font-size:48px; margin-bottom:12px; display:block; filter:drop-shadow(0 0 20px rgba(255,60,172,.4)); }
+  .upload-title { font-size:18px; font-weight:600; margin-bottom:6px; }
+  .upload-sub { font-size:13px; color:var(--muted); }
+  .preview-wrap { border-radius:20px; overflow:hidden; margin-bottom:28px; position:relative; background:var(--surface); display:none; }
+  .preview-wrap.visible { display:block; }
+  #preview-img { width:100%; max-height:380px; object-fit:cover; display:block; }
+  .change-btn { position:absolute; top:14px; right:14px; padding:7px 16px; border-radius:100px; background:rgba(10,10,15,.7); border:1px solid var(--border); color:var(--text); font-size:12px; cursor:pointer; backdrop-filter:blur(8px); font-family:'DM Sans',sans-serif; transition:all .2s; }
+  .change-btn:hover { background:rgba(255,60,172,.2); border-color:var(--accent); }
+
+  /* Type */
+  .type-row { display:flex; gap:10px; margin-bottom:28px; }
+  .type-btn { flex:1; padding:14px; border-radius:14px; border:1.5px solid var(--border); background:var(--surface); color:var(--muted); font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500; cursor:pointer; text-align:center; transition:all .2s; display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .type-btn span:first-child { font-size:22px; }
+  .type-btn:hover { border-color:rgba(255,60,172,.4); color:var(--text); }
+  .type-btn.active { border-color:var(--accent); background:rgba(255,60,172,.1); color:var(--text); }
+
+  /* Generate */
+  .gen-btn { width:100%; padding:18px; border-radius:14px; border:none; background:linear-gradient(135deg,var(--accent),var(--accent2),var(--accent3)); color:#fff; font-family:'Bebas Neue',cursive; font-size:22px; letter-spacing:3px; cursor:pointer; position:relative; overflow:hidden; transition:all .3s; margin-bottom:30px; }
+  .gen-btn::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,var(--accent3),var(--accent2),var(--accent)); opacity:0; transition:opacity .3s; }
+  .gen-btn:hover::before { opacity:1; }
+  .gen-btn:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(255,60,172,.4); }
+  .gen-btn span { position:relative; z-index:1; }
+
+  /* Loading */
+  .loading { display:none; text-align:center; padding:40px; }
+  .loading.visible { display:block; }
+  .spinner { width:48px; height:48px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 16px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .loading-text { font-family:'Space Mono',monospace; font-size:12px; color:var(--muted); letter-spacing:2px; }
+
+  /* Results */
+  .results { display:none; }
+  .results.visible { display:block; }
+  .result-header { font-family:'Bebas Neue',cursive; font-size:32px; letter-spacing:2px; margin-bottom:20px; background:linear-gradient(135deg,var(--neon),var(--accent)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .lang-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 14px; border-radius:100px; font-size:12px; font-family:'Space Mono',monospace; background:rgba(0,245,255,.08); border:1px solid rgba(0,245,255,.25); color:var(--neon); margin-bottom:20px; }
+
+  /* Songs */
+  .songs-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; margin-bottom:28px; }
+  .song-card { background:var(--surface); border:1.5px solid var(--border); border-radius:16px; padding:16px; cursor:pointer; transition:all .25s; position:relative; overflow:hidden; }
+  .song-card::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,60,172,.08),rgba(43,134,197,.08)); opacity:0; transition:opacity .25s; }
+  .song-card:hover::before { opacity:1; }
+  .song-card:hover { border-color:rgba(255,60,172,.4); transform:translateY(-3px); box-shadow:0 10px 30px rgba(0,0,0,.3); }
+  .song-card.selected { border-color:var(--accent); background:rgba(255,60,172,.1); }
+  .song-meta { display:flex; align-items:flex-start; gap:12px; position:relative; z-index:1; }
+  .song-emoji { font-size:30px; flex-shrink:0; }
+  .song-title { font-weight:600; font-size:15px; margin-bottom:3px; }
+  .song-artist { font-size:12px; color:var(--muted); }
+  .song-lang-pill { display:inline-block; font-size:9px; padding:2px 7px; border-radius:100px; background:rgba(255,215,0,.1); border:1px solid rgba(255,215,0,.3); color:var(--gold); font-family:'Space Mono',monospace; margin-top:5px; }
+
+  /* Captions */
+  .captions-list { display:flex; flex-direction:column; gap:12px; margin-bottom:28px; }
+  .caption-card { background:var(--surface); border:1.5px solid var(--border); border-radius:16px; padding:16px 18px; cursor:pointer; transition:all .25s; position:relative; }
+  .caption-card:hover { border-color:rgba(43,134,197,.5); background:var(--surface2); transform:translateX(4px); }
+  .caption-card.selected { border-color:var(--neon); background:rgba(0,245,255,.05); }
+  .caption-text { font-size:15px; line-height:1.6; margin-bottom:8px; }
+  .caption-hashtags { font-size:12px; color:var(--accent3); font-weight:500; }
+  .copy-hint { position:absolute; bottom:12px; right:14px; font-size:11px; color:var(--muted); opacity:0; transition:opacity .2s; font-family:'Space Mono',monospace; }
+  .caption-card:hover .copy-hint { opacity:1; }
+
+  /* Toast */
+  .toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--surface2); border:1px solid var(--accent); border-radius:100px; padding:12px 24px; font-size:14px; font-weight:500; z-index:999; transition:transform .3s cubic-bezier(.34,1.56,.64,1); box-shadow:0 8px 30px rgba(255,60,172,.2); white-space:nowrap; }
+  .toast.show { transform:translateX(-50%) translateY(0); }
+  .regen-btn { width:100%; padding:14px; border-radius:12px; border:1.5px solid var(--border); background:transparent; color:var(--muted); font-family:'DM Sans',sans-serif; font-size:14px; cursor:pointer; transition:all .2s; margin-bottom:40px; }
+  .regen-btn:hover { border-color:var(--accent); color:var(--text); }
+  .divider { height:1px; background:var(--border); margin:24px 0; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+  .animate-in { animation:fadeUp .4s ease forwards; opacity:0; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">VibeCheck</div>
+    <div class="tagline">AI Song & Caption Suggester for Instagram</div>
+  </header>
+
+  <div class="section-label">① Choose Your Vibe</div>
+  <div class="flex-wrap" id="vibes">
+    <button class="vibe-btn active" data-vibe="romantic">💕 Romantic</button>
+    <button class="vibe-btn" data-vibe="attitude">😤 Attitude</button>
+    <button class="vibe-btn" data-vibe="happy">🌟 Happy</button>
+    <button class="vibe-btn" data-vibe="sad">🌧️ Sad</button>
+    <button class="vibe-btn" data-vibe="motivational">🔥 Motivational</button>
+    <button class="vibe-btn" data-vibe="travel">✈️ Travel</button>
+    <button class="vibe-btn" data-vibe="chill">🌊 Chill</button>
+    <button class="vibe-btn" data-vibe="party">🎉 Party</button>
+    <button class="vibe-btn" data-vibe="friendship">👯 Friendship</button>
+    <button class="vibe-btn" data-vibe="boss">💼 Boss Mode</button>
+  </div>
+
+  <div class="section-label">② Choose Language</div>
+  <div class="flex-wrap" id="langs">
+    <button class="lang-btn active" data-lang="hindi"><span class="flag">🇮🇳</span> Hindi</button>
+    <button class="lang-btn" data-lang="english"><span class="flag">🇬🇧</span> English</button>
+    <button class="lang-btn" data-lang="marathi"><span class="flag">🧡</span> Marathi</button>
+    <button class="lang-btn" data-lang="south"><span class="flag">🌴</span> South (Tamil/Telugu)</button>
+    <button class="lang-btn" data-lang="punjabi"><span class="flag">💛</span> Punjabi</button>
+    <button class="lang-btn" data-lang="mix"><span class="flag">🎨</span><span class="mix-label">MIX – All Languages</span></button>
+  </div>
+
+  <div class="section-label">③ Content Type</div>
+  <div class="type-row">
+    <button class="type-btn active" data-type="story"><span>📸</span><span>Story</span></button>
+    <button class="type-btn" data-type="post"><span>🖼️</span><span>Post</span></button>
+    <button class="type-btn" data-type="reel"><span>🎬</span><span>Reel</span></button>
+  </div>
+
+  <div class="section-label">④ Upload Photo / Video (Optional)</div>
+  <div class="upload-zone" id="upload-zone">
+    <input type="file" id="file-input" accept="image/*,video/*">
+    <span class="upload-icon">📤</span>
+    <div class="upload-title">Drop your photo or video here</div>
+    <div class="upload-sub">or click to browse · JPG, PNG, MP4, MOV</div>
+  </div>
+  <div class="preview-wrap" id="preview-wrap">
+    <img id="preview-img" src="" alt="Preview">
+    <button class="change-btn" id="change-btn">Change ✕</button>
+  </div>
+
+  <button class="gen-btn" id="gen-btn"><span>✨ Generate My Vibe</span></button>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loading-text">ANALYZING YOUR VIBE...</div>
+  </div>
+
+  <div class="results" id="results">
+    <div class="lang-badge" id="lang-badge">🇮🇳 Hindi</div>
+    <div class="result-header">🎵 Perfect Songs For You</div>
+    <div class="songs-grid" id="songs-grid"></div>
+    <div class="divider"></div>
+    <div class="result-header">✍️ Caption Ideas</div>
+    <div class="captions-list" id="captions-list"></div>
+    <button class="regen-btn" id="regen-btn">🔄 Regenerate Suggestions</button>
+  </div>
+</div>
+<div class="toast" id="toast">📋 Copied!</div>
+
+<script>
+const db = {
+  romantic: {
+    hindi: { songs: [{emoji:"🌹",title:"Tum Hi Ho",artist:"Arijit Singh",lang:"Hindi"},{emoji:"💫",title:"Tere Bina",artist:"A.R. Rahman",lang:"Hindi"},{emoji:"🕯️",title:"Pehla Nasha",artist:"Udit Narayan",lang:"Hindi"},{emoji:"🌸",title:"Raabta",artist:"Arijit Singh",lang:"Hindi"},{emoji:"💌",title:"Tera Ban Jaunga",artist:"Akhil Sachdeva",lang:"Hindi"},{emoji:"🦋",title:"Khairiyat",artist:"Arijit Singh",lang:"Hindi"}], captions: [{text:"तू मेरी ज़िंदगी का सबसे खूबसूरत हिस्सा है 🌹",tags:"#प्यार #RomancePe #TumHiHo #Ishq"},{text:"तेरे बिना अधूरा हूँ मैं 💫",tags:"#Love #Hindi #Romantic #Soulmate"},{text:"हर ख्वाब में तू है, हर साँस में तू है ❤️",tags:"#TeraBanJaunga #Pyaar #Arijit"},{text:"जब तू होता है पास, दुनिया लगती है खास 🌸",tags:"#RomanticVibes #HindiCaption #LoveLife"}] },
+    english: { songs: [{emoji:"🌹",title:"Perfect",artist:"Ed Sheeran",lang:"English"},{emoji:"🦋",title:"Can't Help Falling in Love",artist:"Elvis Presley",lang:"English"},{emoji:"🌸",title:"Lover",artist:"Taylor Swift",lang:"English"},{emoji:"💌",title:"All of Me",artist:"John Legend",lang:"English"},{emoji:"✨",title:"A Thousand Years",artist:"Christina Perri",lang:"English"},{emoji:"🕯️",title:"Make You Feel My Love",artist:"Adele",lang:"English"}], captions: [{text:"Every love story is beautiful, but ours is my favourite 🌹",tags:"#Love #Romantic #Soulmate #ForeverUs"},{text:"In a world full of ordinary, you are my extraordinary ✨",tags:"#BaePic #LoveOfMyLife #CoupleGoals"},{text:"Home is wherever I'm with you 🏡💕",tags:"#MyPerson #Relationship #TogetherForever"},{text:"You are the poem I never knew how to write 🖊️",tags:"#DeepLove #Aesthetic #InstaRomance"}] },
+    marathi: { songs: [{emoji:"🌺",title:"Tujhyach Sathi",artist:"Swapnil Bandodkar",lang:"Marathi"},{emoji:"💞",title:"Man Udhan Varyache",artist:"Swapnil Bandodkar",lang:"Marathi"},{emoji:"🌹",title:"Aamhi Doghi",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"💛",title:"Apsara Aali",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"🌸",title:"Bai Bharali",artist:"Vaishali Samant",lang:"Marathi"},{emoji:"🎶",title:"Yad Lagla",artist:"Ajay-Atul",lang:"Marathi"}], captions: [{text:"तू माझ्या श्वासात मिसळलेला आहेस 🌹",tags:"#MarathiLove #Prem #Maharashtra"},{text:"प्रेम म्हणजे फक्त तू 💛",tags:"#MarathiCaption #Ishq #Couple"},{text:"तुझ्याशिवाय अधुरे आहे माझे जग 🌸",tags:"#MarathiRomance #ManUdhan #TujhyaSathi"},{text:"तू आहेस म्हणून मी आहे ❤️",tags:"#Marathi #Love #MarathiCouple #Pure"}] },
+    south: { songs: [{emoji:"🌺",title:"Ennodu Nee Irundhaal",artist:"A.R. Rahman",lang:"Tamil"},{emoji:"💞",title:"Nenjukulle",artist:"A.R. Rahman",lang:"Tamil"},{emoji:"🌸",title:"Ye Maaya Chesave",artist:"A.R. Rahman",lang:"Telugu"},{emoji:"🦋",title:"Oka Laila Kosam",artist:"Mickey J Meyer",lang:"Telugu"},{emoji:"🌹",title:"Vinnaithaandi Varuvaayaa",artist:"A.R. Rahman",lang:"Tamil"},{emoji:"💛",title:"Manasantha Nuvve",artist:"M.M. Keeravani",lang:"Telugu"}], captions: [{text:"உன்னோடு நான் இருந்தால் உலகமே மாறும் 🌺",tags:"#TamilLove #SouthRomance #ARRahman"},{text:"నీతో ఉంటే ఈ లోకమే స్వర్గం 🌸",tags:"#TeluguLove #Tollywood #SouthVibes"},{text:"En manasule nee mattum thaan 💞",tags:"#TamilCaption #SouthLove #Nenjukulle"},{text:"Nee illatha oru naal kuda en manam thangadhu 🌹",tags:"#Tamil #TeluguCaption #SouthIndia"}] },
+    punjabi: { songs: [{emoji:"💛",title:"Dildarian",artist:"Amrinder Gill",lang:"Punjabi"},{emoji:"🌹",title:"Qismat",artist:"Ammy Virk",lang:"Punjabi"},{emoji:"💕",title:"Kinna Sona",artist:"Sukhbir",lang:"Punjabi"},{emoji:"🌸",title:"Soch Na Sake",artist:"Arijit ft. Diljit",lang:"Punjabi"},{emoji:"🎶",title:"Laembadgini",artist:"Diljit Dosanjh",lang:"Punjabi"},{emoji:"💫",title:"Ikk Vaari Aa",artist:"Pritam",lang:"Punjabi"}], captions: [{text:"ਤੂੰ ਮੇਰੇ ਦਿਲ ਦੀ ਕਹਾਣੀ ਹੈਂ 💛",tags:"#PunjabiLove #Qismat #Dil #Yaar"},{text:"Tenu dekhke dil mera khush ho jaanda 🌹",tags:"#PunjabiCaption #LoveVibes #Punjab"},{text:"Sohneya tenu hi chahunda aa dil mera 💕",tags:"#Punjabi #Romance #SochNaSake"},{text:"Jad vi tenu yaad karda haan, dil smile karda haan 🌸",tags:"#PunjabiRomance #TrueLove #Virk"}] }
+  },
+  attitude: {
+    hindi: { songs: [{emoji:"👑",title:"Apna Time Aayega",artist:"Divine",lang:"Hindi"},{emoji:"🔥",title:"Mere Gully Mein",artist:"Divine & Naezy",lang:"Hindi"},{emoji:"💎",title:"Bhaukaal",artist:"Emiway Bantai",lang:"Hindi"},{emoji:"⚡",title:"MC Sher – Gully Boy",artist:"Divine",lang:"Hindi"},{emoji:"😈",title:"Doob Gaye",artist:"Guru Randhawa",lang:"Hindi"},{emoji:"🐯",title:"Jaanbaaz",artist:"DIVINE",lang:"Hindi"}], captions: [{text:"मेरा वक्त आएगा — बस थोड़ा इंतज़ार कर 👑",tags:"#ApnaTimeAayega #Attitude #Hindi #Boss"},{text:"सोच छोटी मत रख, दुनिया बड़ी है 🔥",tags:"#HindiAttitude #Grind #GullyBoy"},{text:"जिसने सपने देखने की हिम्मत रखी, उसने दुनिया बदल दी ⚡",tags:"#DIVINE #AttitudeCaption #Motivation"},{text:"मैं वो हूँ जो भीड़ से अलग दिखता है 😈",tags:"#Swag #NaaNormal #AttitudeHai #HindiKing"}] },
+    english: { songs: [{emoji:"🔥",title:"HUMBLE.",artist:"Kendrick Lamar",lang:"English"},{emoji:"😈",title:"Bad Guy",artist:"Billie Eilish",lang:"English"},{emoji:"💎",title:"Rockstar",artist:"Post Malone",lang:"English"},{emoji:"⚡",title:"Kings Never Die",artist:"Eminem",lang:"English"},{emoji:"👑",title:"Power",artist:"Kanye West",lang:"English"},{emoji:"🐍",title:"Look What You Made Me Do",artist:"Taylor Swift",lang:"English"}], captions: [{text:"Soft heart, savage mind. Don't get it twisted 😤",tags:"#Attitude #Queen #NoBSZone"},{text:"I don't have an attitude problem. You have a perception problem 👑",tags:"#Facts #SelfMade #Unbothered"},{text:"They said I couldn't. That's why I did 🔥",tags:"#Motivated #AttitudeIsEverything #LevelUp"},{text:"Confidence level: selfie with no filter 📸",tags:"#Flawless #OwnIt #Unapologetic"}] },
+    marathi: { songs: [{emoji:"🔥",title:"Jai Jai Maharashtra Majha",artist:"Shankar Mahadevan",lang:"Marathi"},{emoji:"👑",title:"Pawankhind",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"⚡",title:"Sher Shivaji",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"💪",title:"Zingaat",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"😤",title:"Natrang",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"🌟",title:"Ekach Raja",artist:"Traditional",lang:"Marathi"}], captions: [{text:"माझा स्वभाव? आग आणि अभिमान 🔥",tags:"#MarathiAttitude #Swag #Zingaat"},{text:"मराठी माणूस — मन, मान आणि मेहनत 💪",tags:"#MarathiPride #Attitude #Jai"},{text:"जगाला वाटतं मी शांत आहे — पण आतून सिंह आहे 🦁",tags:"#Marathi #King #AttitudeMarathi"},{text:"मी कमी नाही, तुमची नजर कमी आहे 😤",tags:"#MarathiSwag #NoFilter #BoldMarathi"}] },
+    south: { songs: [{emoji:"👑",title:"Vaathi Coming",artist:"Anirudh Ravichander",lang:"Tamil"},{emoji:"🔥",title:"Rowdy Baby",artist:"Yuvan Shankar Raja",lang:"Tamil"},{emoji:"💎",title:"Arabic Kuthu",artist:"Anirudh Ravichander",lang:"Tamil"},{emoji:"⚡",title:"Saami Saami",artist:"Devi Sri Prasad",lang:"Telugu"},{emoji:"😈",title:"Beast Mode",artist:"Anirudh",lang:"Tamil"},{emoji:"🦁",title:"Buttabomma",artist:"Armaan Malik",lang:"Telugu"}], captions: [{text:"நான் யாருக்கும் பயப்பட மாட்டேன் 👑",tags:"#TamilAttitude #VaathiComing #King"},{text:"నేను ఎవరికీ తక్కువ కాదు 🔥",tags:"#TeluguAttitude #Tollywood #Bold"},{text:"En character ku ethu match aagadhu 😈",tags:"#TamilSwag #SouthAttitude #BeastMode"},{text:"Attitude ku level illai, naan just myself 💎",tags:"#Tamil #SouthVibes #ArabicKuthu"}] },
+    punjabi: { songs: [{emoji:"💎",title:"Brown Munde",artist:"AP Dhillon",lang:"Punjabi"},{emoji:"🔥",title:"Excuses",artist:"AP Dhillon",lang:"Punjabi"},{emoji:"👑",title:"GOAT",artist:"Diljit Dosanjh",lang:"Punjabi"},{emoji:"⚡",title:"Naseeb",artist:"Diljit Dosanjh",lang:"Punjabi"},{emoji:"😤",title:"Keh Gayi Sorry",artist:"AP Dhillon",lang:"Punjabi"},{emoji:"🦅",title:"Peed",artist:"Kanwar Grewal",lang:"Punjabi"}], captions: [{text:"ਮੇਰਾ ਅੰਦਾਜ਼ ਹੀ ਮੇਰੀ ਪਹਿਚਾਣ ਹੈ 💎",tags:"#PunjabiAttitude #APDhillon #Swag"},{text:"Asin tan oh haan jinu duniya sochdi hai 😤",tags:"#PunjabiSwag #Bold #Diljit"},{text:"Jatt di life – koi excuse nahi, sirf results 🔥",tags:"#JattLife #Attitude #BrownMunde"},{text:"Sher haan main, cage nahi rehna 👑",tags:"#PunjabiKing #Unbothered #GOAT"}] }
+  },
+  happy: {
+    hindi: { songs: [{emoji:"☀️",title:"Zindagi Na Milegi Dobara",artist:"Shankar-Ehsaan-Loy",lang:"Hindi"},{emoji:"🌈",title:"Gallan Goodiyaan",artist:"Various",lang:"Hindi"},{emoji:"🎊",title:"London Thumakda",artist:"Labh Janjua",lang:"Hindi"},{emoji:"🌟",title:"Balam Pichkari",artist:"Shalmali Kholgade",lang:"Hindi"},{emoji:"💃",title:"Ainvayi Ainvayi",artist:"Salim-Sulaiman",lang:"Hindi"},{emoji:"🥳",title:"Badnaam Na Karo",artist:"Darshan Raval",lang:"Hindi"}], captions: [{text:"ज़िंदगी मिली है एक बार — पूरे जोश से जियो 🌟",tags:"#Zindagi #Happy #HindiCaption"},{text:"खुशी बाँटने से बढ़ती है ☀️",tags:"#Khushi #HindiVibe #GoodDay"},{text:"हँसते रहो — यही असली ज़िंदगी है 😊",tags:"#Masti #DilKhush #HindiHappy"},{text:"आज का दिन सिर्फ मुस्कुराने का है 🎊",tags:"#GoodVibes #HappyHindi #ZindagiNaMilegi"}] },
+    english: { songs: [{emoji:"☀️",title:"Happy",artist:"Pharrell Williams",lang:"English"},{emoji:"🌈",title:"Good as Hell",artist:"Lizzo",lang:"English"},{emoji:"🎊",title:"Levitating",artist:"Dua Lipa",lang:"English"},{emoji:"✨",title:"Beautiful Day",artist:"U2",lang:"English"},{emoji:"🥳",title:"Can't Stop the Feeling",artist:"Justin Timberlake",lang:"English"},{emoji:"💛",title:"Sunflower",artist:"Post Malone",lang:"English"}], captions: [{text:"Happiness is homemade 🌻✨",tags:"#JoyfulVibes #Blessed #GoodDays"},{text:"Smiling my way through life 📸",tags:"#HappyVibes #Positivity #GoodEnergy"},{text:"This is my happy place and I'm not leaving 😊",tags:"#Vibes #LivingMyBestLife #Grateful"},{text:"Be the reason someone smiles today 💛",tags:"#SpreadLove #GoodVibesOnly #Wholesome"}] },
+    marathi: { songs: [{emoji:"🌸",title:"Zingaat",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"🎉",title:"Yad Lagla",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"☀️",title:"Bai Bharali",artist:"Vaishali Samant",lang:"Marathi"},{emoji:"💃",title:"Kombdi Palali",artist:"Traditional",lang:"Marathi"},{emoji:"🥳",title:"Natrang",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"🌟",title:"Ekach Raja",artist:"Traditional",lang:"Marathi"}], captions: [{text:"आनंद घ्या, आयुष्य एकच आहे 🌸",tags:"#MarathiHappy #Zingaat #Anand"},{text:"हास रे हास, मन फुलून जाईल 😊",tags:"#MarathiSmile #Joy #SukhiRaho"},{text:"उत्सव आहे आज — नाच आणि गा 🎉",tags:"#MarathiCelebration #Kombdi #Dance"},{text:"जगणं सुंदर आहे — फक्त डोळे उघडे ठेव ☀️",tags:"#Marathi #Happy #SunshineVibes"}] },
+    south: { songs: [{emoji:"🌟",title:"Kannaana Kanney",artist:"D. Imman",lang:"Tamil"},{emoji:"💃",title:"Saami Saami",artist:"Devi Sri Prasad",lang:"Telugu"},{emoji:"☀️",title:"Kutti Story",artist:"Anirudh",lang:"Tamil"},{emoji:"🥳",title:"Arabic Kuthu",artist:"Anirudh",lang:"Tamil"},{emoji:"🌸",title:"Butta Bomma",artist:"Armaan Malik",lang:"Telugu"},{emoji:"🎉",title:"Rowdy Baby",artist:"Yuvan",lang:"Tamil"}], captions: [{text:"இந்த நாள் என்னுடையது! 🌟",tags:"#TamilHappy #Joy #KollyVibes"},{text:"సంతోషం మనసులో ఉంటే ప్రపంచమే అందంగా కనిపిస్తుంది ☀️",tags:"#TeluguHappy #Joy #SouthVibes"},{text:"Vazhkai oru thiruvizha – celebrate every second 🎉",tags:"#Tamil #Life #ArabicKuthu"},{text:"Nalla naal – nalla irukku! 💃",tags:"#SouthVibes #HappyTamil #Fun"}] },
+    punjabi: { songs: [{emoji:"🎉",title:"Morni Banke",artist:"Guru Randhawa",lang:"Punjabi"},{emoji:"💃",title:"Laembadgini",artist:"Diljit Dosanjh",lang:"Punjabi"},{emoji:"🥳",title:"5 Taara",artist:"Diljit Dosanjh",lang:"Punjabi"},{emoji:"☀️",title:"Muchh",artist:"Gippy Grewal",lang:"Punjabi"},{emoji:"🌟",title:"Proper Patola",artist:"Diljit & Badshah",lang:"Punjabi"},{emoji:"🎊",title:"Ikk Kudi",artist:"Diljit Dosanjh",lang:"Punjabi"}], captions: [{text:"ਖੁਸ਼ੀ ਵੰਡਣ ਨਾਲ ਵਧਦੀ ਏ 🎉",tags:"#PunjabiHappy #Khushi #Celebrate"},{text:"Saddi zindagi – music, dance te yaarian 💃",tags:"#PunjabiVibes #Happy #Punjab"},{text:"Roz nahi aunda eho jiha din — enjoy karo! 🥳",tags:"#5Taara #PunjabiJoy #GoodDay"},{text:"Punjab di mitti, dil vich khushi 🌟",tags:"#PunjabiPride #Happy #ProperPatola"}] }
+  },
+  motivational: {
+    hindi: { songs: [{emoji:"🚀",title:"Kar Har Maidaan Fateh",artist:"Sukhwinder Singh",lang:"Hindi"},{emoji:"🔥",title:"Chak De India",artist:"Sukhwinder Singh",lang:"Hindi"},{emoji:"💪",title:"Zinda",artist:"Siddharth Mahadevan",lang:"Hindi"},{emoji:"⚡",title:"Sultan Theme",artist:"Julius Packiam",lang:"Hindi"},{emoji:"🏆",title:"Dangal Title Track",artist:"Daler Mehndi",lang:"Hindi"},{emoji:"👊",title:"Jai Ho",artist:"A.R. Rahman",lang:"Hindi"}], captions: [{text:"हार मत मानो — मंज़िल ज़रूर मिलेगी 🚀",tags:"#KarHarMaidaan #Motivation #Goals"},{text:"जो सपने देखता है, वो एक दिन इतिहास बनाता है 🔥",tags:"#ChakDeIndia #HindiMotivation #Dream"},{text:"कठिन वक्त इंसान को मज़बूत बनाता है 💪",tags:"#Zinda #Struggle #StayStrong"},{text:"ऊठ, लड़, जीत 🏆",tags:"#Dangal #Fighter #Hindi #Win"}] },
+    english: { songs: [{emoji:"🚀",title:"Eye of the Tiger",artist:"Survivor",lang:"English"},{emoji:"⚡",title:"Till I Collapse",artist:"Eminem",lang:"English"},{emoji:"👊",title:"Unstoppable",artist:"Sia",lang:"English"},{emoji:"💪",title:"Lose Yourself",artist:"Eminem",lang:"English"},{emoji:"🔥",title:"Hall of Fame",artist:"The Script",lang:"English"},{emoji:"🏆",title:"We Will Rock You",artist:"Queen",lang:"English"}], captions: [{text:"Hustle until your haters ask if you're hiring 💼🔥",tags:"#Grind #BossUp #HardWork"},{text:"Your only competition is who you were yesterday 💪",tags:"#SelfImprovement #GrowthMindset"},{text:"Small steps every day add up to giant leaps 🚀",tags:"#DailyMotivation #Consistency"},{text:"I'm not where I want to be, but thank God I'm not where I used to be 📈",tags:"#Growth #Progress #Journey"}] },
+    marathi: { songs: [{emoji:"💪",title:"Jai Jai Maharashtra Majha",artist:"Shankar Mahadevan",lang:"Marathi"},{emoji:"🔥",title:"Pawankhind",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"⚡",title:"Sher Shivaji",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"🏆",title:"Natrang",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"🚀",title:"Zingaat",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"👊",title:"Ekach Raja",artist:"Traditional",lang:"Marathi"}], captions: [{text:"स्वप्न बघणे बंद करू नका — ते सत्यात उतरवा 🚀",tags:"#MarathiMotivation #Swapna #Goals"},{text:"मेहनत करणाऱ्यांना इश्वर नक्की साथ देतो 🔥",tags:"#Marathi #HardWork #Motivation"},{text:"शिवाजी महाराजांचा महाराष्ट्र — हार मानत नाही 💪",tags:"#Pawankhind #Shivaji #MarathiPride"},{text:"हार ही सुरूवात असते — अंत नाही 🏆",tags:"#MarathiInspire #Natrang #KeepGoing"}] },
+    south: { songs: [{emoji:"🚀",title:"Aalaporaan Tamizhan",artist:"A.R. Rahman",lang:"Tamil"},{emoji:"🔥",title:"Mersal Arasan",artist:"A.R. Rahman",lang:"Tamil"},{emoji:"💪",title:"RRR Theme",artist:"M.M. Keeravani",lang:"Telugu"},{emoji:"🏆",title:"Sivaji Title Theme",artist:"A.R. Rahman",lang:"Tamil"},{emoji:"⚡",title:"Jai Lava Kusa",artist:"Devi Sri Prasad",lang:"Telugu"},{emoji:"👊",title:"Khaleja Theme",artist:"S.S. Thaman",lang:"Telugu"}], captions: [{text:"தமிழன் என்று சொல்லடா, தலை நிமிர்ந்து நில்லடா 💪",tags:"#TamilMotivation #AalaporaanTamizhan"},{text:"నేను పడినా, లేస్తాను — ఇదే నా స్వభావం 🔥",tags:"#TeluguMotivation #Rise #Fighter"},{text:"Vida maaten — vera level iruken ⚡",tags:"#Tamil #Motivation #NoGiveUp"},{text:"RRR spirit – rise, roar, revolt 🚀",tags:"#RRR #Telugu #Tollywood #NTR"}] },
+    punjabi: { songs: [{emoji:"🔥",title:"GOAT",artist:"Diljit Dosanjh",lang:"Punjabi"},{emoji:"🚀",title:"Proper Patola",artist:"Diljit & Badshah",lang:"Punjabi"},{emoji:"💪",title:"Brown Munde",artist:"AP Dhillon",lang:"Punjabi"},{emoji:"🏆",title:"G.O.A.T",artist:"AP Dhillon",lang:"Punjabi"},{emoji:"⚡",title:"Peed",artist:"Kanwar Grewal",lang:"Punjabi"},{emoji:"👑",title:"Naseeb",artist:"Diljit Dosanjh",lang:"Punjabi"}], captions: [{text:"ਮਿਹਨਤ ਕਰੋ — ਨਸੀਬ ਆਪੇ ਬਣ ਜਾਵੇਗਾ 🔥",tags:"#PunjabiMotivation #Naseeb #Grind"},{text:"Jatt di mehnat kabhi zaaya nahi jaandi 💪",tags:"#JattLife #HardWork #GOAT"},{text:"Othe ja jithe log sochde ne tu nahi ja sakda 🚀",tags:"#PunjabiInspire #Goals #Win"},{text:"Haar nahi manni — Punjabi khoon hai 🏆",tags:"#Punjab #Fighter #PunjabiPride"}] }
+  },
+  sad: {
+    hindi: { songs: [{emoji:"🌧️",title:"Agar Tum Saath Ho",artist:"Arijit Singh",lang:"Hindi"},{emoji:"🥀",title:"Tujhe Bhula Diya",artist:"Mohit Chauhan",lang:"Hindi"},{emoji:"💔",title:"Teri Mitti",artist:"B Praak",lang:"Hindi"},{emoji:"😢",title:"Phir Bhi Tumko Chaahunga",artist:"Arijit Singh",lang:"Hindi"},{emoji:"🌑",title:"Kabira",artist:"Rekha Bhardwaj",lang:"Hindi"},{emoji:"🖤",title:"Channa Mereya",artist:"Arijit Singh",lang:"Hindi"}], captions: [{text:"कुछ दर्द अल्फ़ाज़ों में नहीं आता 🌧️",tags:"#SadHindi #Dard #Arijit"},{text:"जो गया वो याद रहेगा हमेशा 🥀",tags:"#HindiSad #Missing #Emotional"},{text:"ज़ख्म जितना गहरा, उतनी गहरी याद 💔",tags:"#TeriMitti #Sad #Hindi #Feels"},{text:"मुस्कुराना पड़ता है — रोना तो अंदर ही रहता है 😢",tags:"#HindiEmo #Feelings #Hidden"}] },
+    english: { songs: [{emoji:"🌧️",title:"Someone Like You",artist:"Adele",lang:"English"},{emoji:"💔",title:"Let Her Go",artist:"Passenger",lang:"English"},{emoji:"🥀",title:"The Night We Met",artist:"Lord Huron",lang:"English"},{emoji:"😢",title:"Fix You",artist:"Coldplay",lang:"English"},{emoji:"🌑",title:"Skinny Love",artist:"Bon Iver",lang:"English"},{emoji:"🖤",title:"Liability",artist:"Lorde",lang:"English"}], captions: [{text:"Some days I'm the storm, some days I'm the rain 🌧️",tags:"#Feelings #DeepThoughts #Vulnerable"},{text:"Even the darkest night will end and the sun will rise 🌑",tags:"#Healing #KeepGoing #EmotionalDump"},{text:"I miss who I was before 💔",tags:"#RealTalk #SadVibes #Relatable"},{text:"Tears water the seeds of your future growth 🌱",tags:"#StayStrong #Growth #SadButHopeful"}] },
+    marathi: { songs: [{emoji:"💔",title:"Man Udhan Varyache",artist:"Swapnil Bandodkar",lang:"Marathi"},{emoji:"🌧️",title:"Tujhyach Sathi",artist:"Swapnil Bandodkar",lang:"Marathi"},{emoji:"😢",title:"Yad Lagla",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"🥀",title:"Bai Bharali",artist:"Vaishali Samant",lang:"Marathi"},{emoji:"🌑",title:"Apsara Aali – Sad Version",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"🖤",title:"Aamhi Doghi",artist:"Ajay-Atul",lang:"Marathi"}], captions: [{text:"मन जड झालंय — पण जगावं लागतं 🌧️",tags:"#MarathiSad #ManUdhan #Dukh"},{text:"जे सोडून गेले ते आठवत राहतात 🥀",tags:"#MarathiEmo #Yaad #Sad"},{text:"आतून किती दुखतंय ते सांगता नाही येत 💔",tags:"#MarathiSad #Hurt #Hidden"},{text:"रडणं लपवता येतं — पण डोळे सांगतात सगळं 😢",tags:"#MarathiFeelings #YadLagla #Sad"}] },
+    south: { songs: [{emoji:"🌧️",title:"Soorarai Pottru BGM",artist:"G.V. Prakash",lang:"Tamil"},{emoji:"💔",title:"Kannukkul Pothivaippen",artist:"Harris Jayaraj",lang:"Tamil"},{emoji:"🥀",title:"Ye Maaya Chesave",artist:"A.R. Rahman",lang:"Telugu"},{emoji:"😢",title:"Arjun Reddy BGM",artist:"Radhan",lang:"Telugu"},{emoji:"🌑",title:"Kadhal Vandhadhum",artist:"A.R. Rahman",lang:"Tamil"},{emoji:"🖤",title:"Ee Varsham Paadutundi",artist:"DSP",lang:"Telugu"}], captions: [{text:"மனசு ஒரு ஆழமான கடல் — யாரும் புரிந்துகொள்வதில்லை 🌧️",tags:"#TamilSad #Feelings #Deep"},{text:"నొప్పి మాటల్లో చెప్పలేను 💔",tags:"#TeluguSad #Hurt #ArjunReddy"},{text:"Azhudha mela azhudha irukku 😢",tags:"#TamilEmo #Sad #SouthVibes"},{text:"Kadhal oru mazhai – vara theriyum, pogave theriyathu 🥀",tags:"#TamilRomance #Sad #Feels"}] },
+    punjabi: { songs: [{emoji:"🌧️",title:"Qismat",artist:"Ammy Virk",lang:"Punjabi"},{emoji:"💔",title:"Peed",artist:"Kanwar Grewal",lang:"Punjabi"},{emoji:"🥀",title:"Tenu Yaad Kardi",artist:"Ninja",lang:"Punjabi"},{emoji:"😢",title:"Ikk Kudi",artist:"Diljit Dosanjh",lang:"Punjabi"},{emoji:"🌑",title:"Ik Teri",artist:"Jassie Gill",lang:"Punjabi"},{emoji:"🖤",title:"Dil Da Kya Kasoor",artist:"Classic",lang:"Punjabi"}], captions: [{text:"ਜੋ ਲੰਘ ਗਿਆ, ਉਹ ਦਿਲ ਵਿੱਚ ਅਜੇ ਵੀ ਹੈ 🌧️",tags:"#PunjabiSad #Qismat #Hurt"},{text:"Dard labde ne alfaaz nahi — bas mehsoos hunda 💔",tags:"#PunjabiEmo #Peed #Sad"},{text:"Yaad aa janda hai kaddi kaddi 🥀",tags:"#PunjabiSad #Miss #Feelings"},{text:"Dil ne manni nahi — par samjha liya 😢",tags:"#Punjabi #Heartbreak #Emotional"}] }
+  },
+  travel: {
+    hindi: { songs: [{emoji:"✈️",title:"Safar",artist:"Arijit Singh",lang:"Hindi"},{emoji:"🌍",title:"Iktara",artist:"Amit Trivedi",lang:"Hindi"},{emoji:"🏔️",title:"Masakali",artist:"A.R. Rahman",lang:"Hindi"},{emoji:"🌅",title:"Zindagi Na Milegi Dobara",artist:"Shankar-Ehsaan-Loy",lang:"Hindi"}], captions: [{text:"दुनिया घूमो — यादें बनाओ 🌍",tags:"#TravelHindi #Safar #Explore"},{text:"हर राह एक नई कहानी है ✈️",tags:"#HindiTravel #Journey #Adventure"},{text:"ज़िंदगी छोटी है — घूमते रहो 🏔️",tags:"#Travel #Hindi #Wanderlust"},{text:"आज का मूड: अनजान राहों पर चलना 🌅",tags:"#HindiCaption #TravelVibes #Safar"}] },
+    english: { songs: [{emoji:"🌍",title:"A Sky Full of Stars",artist:"Coldplay",lang:"English"},{emoji:"✈️",title:"Viva La Vida",artist:"Coldplay",lang:"English"},{emoji:"🏔️",title:"Take Me to Church",artist:"Hozier",lang:"English"},{emoji:"🌅",title:"Don't Stop Me Now",artist:"Queen",lang:"English"}], captions: [{text:"Collect moments, not things ✈️✨",tags:"#TravelLife #AdventureAwaits #BucketList"},{text:"Not all those who wander are lost 🗺️",tags:"#Wanderlust #TravelGram #ExploreMore"},{text:"The world is a book 📖",tags:"#WorldTraveler #Explore #TravelBlogger"},{text:"Sunday mood: lost somewhere beautiful 🌅",tags:"#WeekendVibes #TravelGram #Nature"}] },
+    marathi: { songs: [{emoji:"🌸",title:"Man Udhan Varyache",artist:"Swapnil Bandodkar",lang:"Marathi"},{emoji:"🏔️",title:"Apsara Aali",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"✈️",title:"Yad Lagla",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"🌅",title:"Bai Bharali",artist:"Vaishali Samant",lang:"Marathi"}], captions: [{text:"फिरायला जा — जग बघ 🌍",tags:"#MarathiTravel #Maharashtra #Explore"},{text:"प्रत्येक रस्त्याला त्याची गोष्ट आहे 🏔️",tags:"#Marathi #Travel #Journey"},{text:"मन उडालं वाऱ्यावर — गाव सोडलं आज 🌸",tags:"#ManUdhan #MarathiVibes #Travel"},{text:"निसर्गाच्या कुशीत हरवणे म्हणजे खरं जगणं 🌅",tags:"#MarathiTravel #Nature #Explore"}] },
+    south: { songs: [{emoji:"🌺",title:"Vinnaithaandi Varuvaayaa",artist:"A.R. Rahman",lang:"Tamil"},{emoji:"✈️",title:"Kannaana Kanney",artist:"D. Imman",lang:"Tamil"},{emoji:"🏔️",title:"Ye Maaya Chesave",artist:"A.R. Rahman",lang:"Telugu"},{emoji:"🌅",title:"Arjun Reddy BGM",artist:"Radhan",lang:"Telugu"}], captions: [{text:"உலகம் சுற்றி பார் — வாழ்க்கை அழகாகும் 🌍",tags:"#TamilTravel #Explore #South"},{text:"ప్రపంచం చూడు — హృదయం తెరుచుకుంటుంది ✈️",tags:"#TeluguTravel #Journey #SouthVibes"},{text:"Payanam oru pathippai thaarum 🏔️",tags:"#TamilCaption #Travel #Nature"},{text:"Yatra lo theli pothundi manassu 🌅",tags:"#Telugu #Travel #SouthTravel"}] },
+    punjabi: { songs: [{emoji:"✈️",title:"Proper Patola",artist:"Diljit & Badshah",lang:"Punjabi"},{emoji:"🌍",title:"Ikk Kudi",artist:"Diljit Dosanjh",lang:"Punjabi"},{emoji:"🏔️",title:"Qismat",artist:"Ammy Virk",lang:"Punjabi"},{emoji:"🌅",title:"Laembadgini",artist:"Diljit Dosanjh",lang:"Punjabi"}], captions: [{text:"ਦੁਨੀਆ ਘੁੰਮੋ — ਯਾਦਾਂ ਬਣਾਓ ✈️",tags:"#PunjabiTravel #Explore #Punjab"},{text:"Sair karo duniya di — zindagi badi choti ai 🌍",tags:"#PunjabiVibes #TravelPunjabi"},{text:"Safar wich maza aa 🏔️",tags:"#Punjabi #Travel #Road #Safar"},{text:"Ghumna phirna – Punjabi dil di zaroorat 🌅",tags:"#PunjabiCaption #Travel #Explore"}] }
+  },
+  chill: {
+    hindi: { songs: [{emoji:"🌊",title:"Khaabon Ke Parindey",artist:"Mohit Chauhan",lang:"Hindi"},{emoji:"🌙",title:"Phir Le Aya Dil",artist:"Arijit Singh",lang:"Hindi"},{emoji:"🍃",title:"Kabhi Kabhi Mere Dil Mein",artist:"Lata Mangeshkar",lang:"Hindi"},{emoji:"🌸",title:"Aaoge Tum Kabhi",artist:"Ankit Tiwari",lang:"Hindi"}], captions: [{text:"चाय की चुस्की और खिड़की की बारिश ☕🌧️",tags:"#ChillHindi #Chai #Monsoon #Cozy"},{text:"कुछ पल बस खुद के लिए 🌸",tags:"#MeTime #HindiChill #Peaceful"},{text:"ज़िंदगी धीरे-धीरे जीने में मज़ा है 🌊",tags:"#SlowLife #HindiCaption #Chill"},{text:"आज का मूड: सोचना नहीं, बस महसूस करना 🌙",tags:"#ChillMode #Hindi #Night"}] },
+    english: { songs: [{emoji:"🌊",title:"Golden Hour",artist:"JVKE",lang:"English"},{emoji:"🍃",title:"Sunflower",artist:"Post Malone",lang:"English"},{emoji:"🌙",title:"Vienna",artist:"Billy Joel",lang:"English"},{emoji:"🫧",title:"Blinding Lights",artist:"The Weeknd",lang:"English"}], captions: [{text:"My vibe right now: no plans, good music, soft lighting 🌙",tags:"#ChillVibes #Aesthetic #SlowLiving"},{text:"Just me, my thoughts, and a cup of chai ☕",tags:"#Cozy #MorningVibes #AestheticLife"},{text:"Life is better in slow motion 🌊",tags:"#ChillMode #Vibes #SundayMood"},{text:"Not doing much, but doing it aesthetically 🌸",tags:"#SoftLife #CalmEnergy #Minimalist"}] },
+    marathi: { songs: [{emoji:"🌸",title:"Man Udhan Varyache",artist:"Swapnil Bandodkar",lang:"Marathi"},{emoji:"🌙",title:"Bai Bharali",artist:"Vaishali Samant",lang:"Marathi"},{emoji:"🌊",title:"Apsara Aali",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"🍃",title:"Shravanat Ghana",artist:"Traditional",lang:"Marathi"}], captions: [{text:"पाऊस आणि मन — दोन्ही शांत 🌧️",tags:"#MarathiChill #Paus #Shanti"},{text:"स्वतःसाठी थोडा वेळ काढ 🌸",tags:"#Marathi #MeTime #ChillMarathi"},{text:"हळूहळू जगणं खरं जगणं 🌊",tags:"#SlowLife #MarathiCaption #Chill"},{text:"चहा, पाऊस आणि मराठी गाणं 🍵",tags:"#Maharashtra #Chai #Monsoon"}] },
+    south: { songs: [{emoji:"🌊",title:"Nenjukulle",artist:"A.R. Rahman",lang:"Tamil"},{emoji:"🌸",title:"Butta Bomma",artist:"Armaan Malik",lang:"Telugu"},{emoji:"🌙",title:"Adiye",artist:"Anirudh",lang:"Tamil"},{emoji:"🍃",title:"Enna Sona",artist:"A.R. Rahman",lang:"Hindi/South"}], captions: [{text:"மனசு அமைதியாக இருக்கும்போது உலகமே அழகாக தெரியும் 🌊",tags:"#TamilChill #Peace #Nenjukulle"},{text:"శాంతి అంటే ఏమిటో ఇప్పుడు అర్థమైంది 🌙",tags:"#TeluguChill #Peaceful #Calm"},{text:"Oru cup kaapi, oru paadal – life perfect 🍵",tags:"#TamilCaption #Chill #Adiye"},{text:"Slow aana moments, fast aana memories 🌸",tags:"#SouthChill #TamilVibes #Aesthetic"}] },
+    punjabi: { songs: [{emoji:"🌸",title:"Ikk Kudi",artist:"Diljit Dosanjh",lang:"Punjabi"},{emoji:"🌙",title:"Peed",artist:"Kanwar Grewal",lang:"Punjabi"},{emoji:"🌊",title:"Qismat",artist:"Ammy Virk",lang:"Punjabi"},{emoji:"🍃",title:"Dildarian",artist:"Amrinder Gill",lang:"Punjabi"}], captions: [{text:"ਚਾਹ, ਮੀਂਹ ਤੇ ਪੰਜਾਬੀ ਗੀਤ ☕🌧️",tags:"#PunjabiChill #Chai #Monsoon"},{text:"Dil nu sukoon chahida – bas itna hi 🌸",tags:"#PunjabiPeace #IkkKudi #ChillVibes"},{text:"Thodi der lyi duniya bhul ja 🌊",tags:"#PunjabiChill #Relax #Qismat"},{text:"Slow life, fast yaadein 🌙",tags:"#PunjabiVibes #Chill #Amrinder"}] }
+  },
+  party: {
+    hindi: { songs: [{emoji:"🎉",title:"Badtameez Dil",artist:"Pritam",lang:"Hindi"},{emoji:"💃",title:"London Thumakda",artist:"Labh Janjua",lang:"Hindi"},{emoji:"🪩",title:"Balam Pichkari",artist:"Shalmali",lang:"Hindi"},{emoji:"🎊",title:"Gallan Goodiyaan",artist:"Various",lang:"Hindi"}], captions: [{text:"आज रात दिल खोल के नाचो 🎉",tags:"#PartyHindi #Dance #BadtameezDil"},{text:"ये रात और ये जश्न — हमेशा याद रहेगा 🪩",tags:"#Hindi #Party #Celebrate"},{text:"जब तक है जान — जशन मनाओ! 💃",tags:"#HindiParty #Naach #LondonThumakda"},{text:"दोस्तों के साथ हर रात स्पेशल होती है 🎊",tags:"#Dost #PartyVibes #GallanGoodiyaan"}] },
+    english: { songs: [{emoji:"🎉",title:"Dynamite",artist:"BTS",lang:"English"},{emoji:"🪩",title:"Can't Stop the Feeling",artist:"Justin Timberlake",lang:"English"},{emoji:"💃",title:"Shut Up and Dance",artist:"Walk the Moon",lang:"English"},{emoji:"🍾",title:"Party Rock Anthem",artist:"LMFAO",lang:"English"}], captions: [{text:"On a scale of 1 to 10, tonight was an 11 🎉🔥",tags:"#PartyVibes #NightOut #SquadGoals"},{text:"Life's too short to not dance when the music's good 💃",tags:"#DanceFloor #GoodTimes #Memories"},{text:"The night is still young and so are we ✨🥂",tags:"#CelebrationMode #TurnUp #Friends"},{text:"Not all who wander are looking for the after-party 😂",tags:"#Squad #OutOut #PartyTime"}] },
+    marathi: { songs: [{emoji:"💃",title:"Zingaat",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"🎉",title:"Kombdi Palali",artist:"Traditional",lang:"Marathi"},{emoji:"🪩",title:"Yad Lagla",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"🥳",title:"Ekach Raja",artist:"Traditional",lang:"Marathi"}], captions: [{text:"आज रात्री मस्ती करायचीच आहे 🎉",tags:"#MarathiParty #Zingaat #Dance"},{text:"कोंबडी पळाली — आणि आमचा पार्टी सुरू झाली 🐔😂",tags:"#Kombdi #MarathiParty #Fun"},{text:"दोस्त आहेत, गाणी आहेत 💃",tags:"#MarathiParty #YadLagla #Celebration"},{text:"आयुष्यात उत्सव असावा 🥳",tags:"#Maharashtra #Party #MarathiVibe"}] },
+    south: { songs: [{emoji:"💃",title:"Arabic Kuthu",artist:"Anirudh",lang:"Tamil"},{emoji:"🎉",title:"Vaathi Coming",artist:"Anirudh",lang:"Tamil"},{emoji:"🪩",title:"Saami Saami",artist:"Devi Sri Prasad",lang:"Telugu"},{emoji:"🥳",title:"Rowdy Baby",artist:"Yuvan",lang:"Tamil"}], captions: [{text:"நாளை பார்க்கலாம் — இப்போ dance பார்க்கலாம்! 💃",tags:"#TamilParty #ArabicKuthu #Anirudh"},{text:"పార్టీ టైం! ఇవాళ మన రాత్రి 🎉",tags:"#TeluguParty #Tollywood #Celebrate"},{text:"En dance move ku match aana irukkanu paarunga 🪩",tags:"#TamilDance #SouthParty #VaathiComing"},{text:"South India party – level different! 🥳",tags:"#SouthVibes #RowdyBaby #Party"}] },
+    punjabi: { songs: [{emoji:"🎉",title:"5 Taara",artist:"Diljit Dosanjh",lang:"Punjabi"},{emoji:"💃",title:"Illegal Weapon",artist:"Garry Sandhu",lang:"Punjabi"},{emoji:"🪩",title:"Kala Chashma",artist:"Amar Arshi",lang:"Punjabi"},{emoji:"🥳",title:"Morni Banke",artist:"Guru Randhawa",lang:"Punjabi"}], captions: [{text:"ਪੰਜਾਬੀ ਪਾਰਟੀ — ਬੱਕੀ ਸਭ ਛੱਡੋ! 🎉",tags:"#PunjabiParty #5Taara #Celebrate"},{text:"Jad Punjabi nachda – floor theek nahi rehta 💃",tags:"#PunjabiDance #KalaChashma #Fun"},{text:"Tonight ki party yaad rahegi saalon tak 🪩",tags:"#PunjabiVibes #Garry #Night"},{text:"Yaar, music te nachna — yehi zindagi hai! 🥳",tags:"#MorniBanke #PunjabiParty #Guru"}] }
+  },
+  friendship: {
+    hindi: { songs: [{emoji:"👯",title:"Dost Dost Na Raha",artist:"Classic",lang:"Hindi"},{emoji:"💛",title:"Yaadon Ki Baaraat",artist:"Classic",lang:"Hindi"},{emoji:"🫶",title:"Ek Duje Ke Liye",artist:"Usha Khanna",lang:"Hindi"},{emoji:"🌟",title:"Jai Ho",artist:"A.R. Rahman",lang:"Hindi"}], captions: [{text:"दोस्त हो तो ऐसे — जो बिना बोले समझे 💛",tags:"#DostHindi #Dosti #Friendship"},{text:"यारी में सब कुछ माफ़ है 😂❤️",tags:"#HindiFriendship #Yaar #Squad"},{text:"जो साथ हो हर मोड़ पर — वो दोस्त है असली 🌟",tags:"#Hindi #TrueFriend #Dosti"},{text:"दोस्तों के साथ हर लम्हा अनमोल है 👯",tags:"#Yaari #HindiCaption #FriendshipGoals"}] },
+    english: { songs: [{emoji:"👯",title:"Count On Me",artist:"Bruno Mars",lang:"English"},{emoji:"🌟",title:"See You Again",artist:"Wiz Khalifa",lang:"English"},{emoji:"💛",title:"Lean On Me",artist:"Bill Withers",lang:"English"},{emoji:"🎶",title:"Friends",artist:"Ed Sheeran & Justin Bieber",lang:"English"}], captions: [{text:"Good friends are like stars — always there 🌟",tags:"#BestFriends #Squad #FriendshipGoals"},{text:"The family you choose 💛",tags:"#MyPeople #Tribe #ForeverFriends"},{text:"Cheaper than therapy, better than anything 😂❤️",tags:"#BFF #Friends #GoodTimes"},{text:"We'll be friends until we're old and senile 😂",tags:"#Besties #LaughTilWeGag"}] },
+    marathi: { songs: [{emoji:"👯",title:"Yad Lagla",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"💛",title:"Aamhi Doghi",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"🌟",title:"Zingaat",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"🫶",title:"Ekach Raja",artist:"Traditional",lang:"Marathi"}], captions: [{text:"मित्र म्हणजे आयुष्याचा खजिना 💛",tags:"#MarathiFriendship #Mitra #Maharashtra"},{text:"माझे मित्र म्हणजे माझा परिवार 🌟",tags:"#MarathiBFF #Friends #YadLagla"},{text:"दोस्ती असावी तर अशी — हसत राहणारी 😂",tags:"#Marathi #Fun #Friendship"},{text:"मित्रांसोबत घालवलेला वेळ कधीच वाया जात नाही 👯",tags:"#MarathiFriend #Squad #Together"}] },
+    south: { songs: [{emoji:"👯",title:"Nanban",artist:"Harris Jayaraj",lang:"Tamil"},{emoji:"💛",title:"Friends",artist:"Anirudh Ravichander",lang:"Tamil"},{emoji:"🌟",title:"Ninnu Kori",artist:"Mickey J Meyer",lang:"Telugu"},{emoji:"🎶",title:"Ye Mava Chesukunna",artist:"Devi Sri Prasad",lang:"Telugu"}], captions: [{text:"நண்பன் இருந்தால் நாளும் நல்லது 💛",tags:"#TamilFriendship #Nanban #South"},{text:"నేస్తం ఉంటే బాధ లేదు, ఆనందం ఉంది 🌟",tags:"#TeluguFriendship #Nestam #SouthVibes"},{text:"En nanban – en life 👯",tags:"#TamilSquad #Friends #Anirudh"},{text:"Yaaru irundhalum, neenga irundha seri 😂❤️",tags:"#Tamil #BFF #FriendshipGoals"}] },
+    punjabi: { songs: [{emoji:"👯",title:"Yaar Anmulle",artist:"Sharry Mann",lang:"Punjabi"},{emoji:"💛",title:"Yaarian",artist:"Jassi Gill",lang:"Punjabi"},{emoji:"🌟",title:"Dosti",artist:"Mankirt Aulakh",lang:"Punjabi"},{emoji:"🫶",title:"Ikk Kudi",artist:"Diljit Dosanjh",lang:"Punjabi"}], captions: [{text:"ਯਾਰ ਅਨਮੋਲੇ — ਕਦੇ ਨਾ ਭੁੱਲਣੇ 💛",tags:"#PunjabiFriendship #YaarAnmulle #Dosti"},{text:"Yaarian hi zindagi hain 😂❤️",tags:"#Yaarian #PunjabiSquad #JassiGill"},{text:"Sache yaar mile hain — zyada kuch nahi chahida 🌟",tags:"#PunjabiYaar #Together #Dosti"},{text:"Jad yaar saath hon — duniya badi chhoti lagdi hai 👯",tags:"#PunjabiVibes #BFF #Ikk"}] }
+  },
+  boss: {
+    hindi: { songs: [{emoji:"💼",title:"Kar Har Maidaan Fateh",artist:"Sukhwinder Singh",lang:"Hindi"},{emoji:"👑",title:"Jai Ho",artist:"A.R. Rahman",lang:"Hindi"},{emoji:"⚡",title:"Sultan Theme",artist:"Julius Packiam",lang:"Hindi"},{emoji:"💰",title:"Apna Time Aayega",artist:"Divine",lang:"Hindi"}], captions: [{text:"मैंने नहीं छोड़ा — इसीलिए यहाँ हूँ 👑",tags:"#BossHindi #Grind #ApnaTime"},{text:"सफलता की कोई शॉर्टकट नहीं होती 💼",tags:"#HindiBoss #HardWork #SelfMade"},{text:"जो हार नहीं मानता — वही जीतता है ⚡",tags:"#Sultan #Fighter #Hindi #Win"},{text:"राज करूंगा — बस वक्त आने दो 💰",tags:"#HindiBoss #King #Hustle"}] },
+    english: { songs: [{emoji:"💼",title:"Started From the Bottom",artist:"Drake",lang:"English"},{emoji:"👑",title:"Power",artist:"Kanye West",lang:"English"},{emoji:"🔑",title:"God's Plan",artist:"Drake",lang:"English"},{emoji:"💰",title:"Work Hard Play Hard",artist:"Wiz Khalifa",lang:"English"}], captions: [{text:"I didn't come this far to only come this far 👑",tags:"#BossMode #Unstoppable #Grind"},{text:"Building my empire one day at a time 🏗️💼",tags:"#Entrepreneur #SelfMade #HardWork"},{text:"They see the crown, not the struggle 👑",tags:"#BehindTheScenes #Success #Boss"},{text:"Let the work speak louder than words 🔇📈",tags:"#Actions #WorkEthic #Achiever"}] },
+    marathi: { songs: [{emoji:"👑",title:"Sher Shivaji",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"💼",title:"Pawankhind",artist:"Ajay-Atul",lang:"Marathi"},{emoji:"⚡",title:"Jai Jai Maharashtra Majha",artist:"Shankar Mahadevan",lang:"Marathi"},{emoji:"🔥",title:"Zingaat",artist:"Ajay-Atul",lang:"Marathi"}], captions: [{text:"मराठी माणूस — काम करतो, शांतपणे जिंकतो 👑",tags:"#MarathiBoss #Shivaji #Win"},{text:"माझ्या मेहनतीचा परिणाम कोणाला दिसेल एक दिवस 💼",tags:"#MarathiGrind #Boss #HardWork"},{text:"छत्रपतींचा महाराष्ट्र — हार माहीत नाही ⚡",tags:"#Marathi #King #Sher #Pawankhind"},{text:"आव्हान स्वीकार — यश तुमचंच आहे 🔥",tags:"#MarathiBoss #Challenge #Win"}] },
+    south: { songs: [{emoji:"👑",title:"Sivaji Title Theme",artist:"A.R. Rahman",lang:"Tamil"},{emoji:"💼",title:"RRR Theme",artist:"M.M. Keeravani",lang:"Telugu"},{emoji:"⚡",title:"Aalaporaan Tamizhan",artist:"A.R. Rahman",lang:"Tamil"},{emoji:"🔥",title:"Mersal Arasan",artist:"A.R. Rahman",lang:"Tamil"}], captions: [{text:"தலை நிமிர்ந்து நடக்கிறேன் — ஏனென்றால் நான் சம்பாதித்தேன் 👑",tags:"#TamilBoss #Sivaji #King"},{text:"నేను నిరూపించాను — ఇప్పుడు అందరూ చూస్తున్నారు 💼",tags:"#TeluguBoss #RRR #Tollywood"},{text:"Boss level: unlocked 🔓",tags:"#TamilKing #SouthBoss #AalaporaanTamizhan"},{text:"Mersal — en level different 🔥",tags:"#MersalArasan #Tamil #Boss"}] },
+    punjabi: { songs: [{emoji:"👑",title:"GOAT",artist:"Diljit Dosanjh",lang:"Punjabi"},{emoji:"💼",title:"Brown Munde",artist:"AP Dhillon",lang:"Punjabi"},{emoji:"⚡",title:"Naseeb",artist:"Diljit Dosanjh",lang:"Punjabi"},{emoji:"🔥",title:"Excuses",artist:"AP Dhillon",lang:"Punjabi"}], captions: [{text:"ਹਾਂ ਮੈਂ ਉਹ ਹਾਂ ਜਿਸ ਬਾਰੇ ਸੋਚਦੇ ਹੋ 👑",tags:"#PunjabiBoss #GOAT #Diljit"},{text:"Kaam bolta hai – baaki sab bekar 💼",tags:"#PunjabiCEO #BrownMunde #APDhillon"},{text:"Naseeb banda banata hai – rab nahi ⚡",tags:"#PunjabiHustle #Naseeb #WorkHard"},{text:"G.O.A.T – Greatest of all time 🔥",tags:"#GOAT #Punjab #Diljit #BossLevel"}] }
+  }
+};
+
+const langLabels = { hindi:'🇮🇳 Hindi', english:'🇬🇧 English', marathi:'🧡 Marathi', south:'🌴 South (Tamil/Telugu)', punjabi:'💛 Punjabi', mix:'🎨 MIX – All Languages' };
+let selectedVibe = 'romantic', selectedLang = 'hindi', selectedType = 'story';
+
+document.querySelectorAll('.vibe-btn').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.vibe-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); selectedVibe = b.dataset.vibe; }));
+document.querySelectorAll('.lang-btn').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.lang-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); selectedLang = b.dataset.lang; }));
+document.querySelectorAll('.type-btn').forEach(b => b.addEventListener('click', () => { document.querySelectorAll('.type-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); selectedType = b.dataset.type; }));
+
+const uploadZone=document.getElementById('upload-zone'), fileInput=document.getElementById('file-input'), previewWrap=document.getElementById('preview-wrap'), previewImg=document.getElementById('preview-img');
+uploadZone.addEventListener('click', ()=>fileInput.click());
+uploadZone.addEventListener('dragover', e=>{e.preventDefault();uploadZone.classList.add('drag-over');});
+uploadZone.addEventListener('dragleave', ()=>uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e=>{e.preventDefault();uploadZone.classList.remove('drag-over');if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});
+fileInput.addEventListener('change', ()=>{if(fileInput.files[0])handleFile(fileInput.files[0]);});
+function handleFile(file){const r=new FileReader();r.onload=e=>{if(file.type.startsWith('image/')){previewImg.src=e.target.result;previewImg.style.display='block';}else previewImg.style.display='none';previewWrap.classList.add('visible');uploadZone.style.display='none';};r.readAsDataURL(file);}
+document.getElementById('change-btn').addEventListener('click', ()=>{previewWrap.classList.remove('visible');uploadZone.style.display='';fileInput.value='';});
+
+document.getElementById('gen-btn').addEventListener('click', generate);
+document.getElementById('regen-btn').addEventListener('click', generate);
+const loadingTexts=["ANALYZING YOUR VIBE...","READING THE ENERGY...","CURATING PERFECT SONGS...","CRAFTING YOUR CAPTIONS...","ALMOST THERE..."];
+function generate(){const loading=document.getElementById('loading'),results=document.getElementById('results'),lt=document.getElementById('loading-text');results.classList.remove('visible');loading.classList.add('visible');let i=0;const iv=setInterval(()=>{lt.textContent=loadingTexts[i++%loadingTexts.length];},400);setTimeout(()=>{clearInterval(iv);loading.classList.remove('visible');renderResults();},2000);}
+
+function getData(vibe,lang){const v=db[vibe];if(!v)return{songs:[],captions:[]};if(lang==='mix'){const all=['hindi','english','marathi','south','punjabi'];let songs=[],captions=[];all.forEach(l=>{if(v[l]){songs.push(...v[l].songs);captions.push(...v[l].captions);}});return{songs,captions};}return v[lang]||{songs:[],captions:[]};}
+
+function renderResults(){const data=getData(selectedVibe,selectedLang);const sg=document.getElementById('songs-grid'),cl=document.getElementById('captions-list'),results=document.getElementById('results'),badge=document.getElementById('lang-badge');
+  badge.textContent=langLabels[selectedLang];
+  if(selectedLang==='mix'){badge.style.cssText='background:linear-gradient(90deg,rgba(255,60,172,.15),rgba(0,245,255,.15),rgba(255,215,0,.12));border-color:rgba(255,215,0,.4);color:#ffd700;';}else{badge.style.cssText='';}
+  const songs=[...data.songs].sort(()=>Math.random()-.5).slice(0,selectedLang==='mix'?6:4);
+  const captions=[...data.captions].sort(()=>Math.random()-.5).slice(0,4);
+  sg.innerHTML=songs.map((s,i)=>`<div class="song-card animate-in" style="animation-delay:${i*.07}s" onclick="selectSong(this,'${s.title.replace(/'/g,"&#39;")} – ${s.artist.replace(/'/g,"&#39;")}')"><div class="song-meta"><span class="song-emoji">${s.emoji}</span><div><div class="song-title">${s.title}</div><div class="song-artist">${s.artist}</div>${s.lang?`<span class="song-lang-pill">${s.lang}</span>`:''}</div></div></div>`).join('');
+  cl.innerHTML=captions.map((c,i)=>`<div class="caption-card animate-in" style="animation-delay:${i*.07}s" onclick="copyCaption(this,'${encodeURIComponent(c.text+'\\n'+c.tags)}')"><div class="caption-text">${c.text}</div><div class="caption-hashtags">${c.tags}</div><span class="copy-hint">tap to copy ✓</span></div>`).join('');
+  results.classList.add('visible');results.scrollIntoView({behavior:'smooth',block:'start'});}
+
+function selectSong(el,text){document.querySelectorAll('.song-card').forEach(c=>c.classList.remove('selected'));el.classList.add('selected');showToast('🎵 Song selected!');}
+function copyCaption(el,encoded){document.querySelectorAll('.caption-card').forEach(c=>c.classList.remove('selected'));el.classList.add('selected');try{navigator.clipboard.writeText(decodeURIComponent(encoded));}catch(e){}showToast('📋 Caption copied to clipboard!');}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600);}
+</script>
+</body>
+</html>
