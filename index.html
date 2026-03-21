@@ -105,18 +105,7 @@ header{text-align:center;padding:50px 0 36px;position:relative;}
 @keyframes shimmer{to{transform:translateX(100%);}};
 
 /* ── LOADING ── */
-.loading{display:none;text-align:center;padding:50px 20px;}
-.loading.on{display:block;}
-.load-ring{width:60px;height:60px;margin:0 auto 20px;position:relative;}
-.load-ring::before,.load-ring::after{content:'';position:absolute;border-radius:50%;}
-.load-ring::before{inset:0;border:3px solid var(--bo);}
-.load-ring::after{inset:0;border:3px solid transparent;border-top-color:var(--pk);border-right-color:var(--cy);animation:spin .8s linear infinite;}
-@keyframes spin{to{transform:rotate(360deg);}};
-.load-icon{position:absolute;inset:0;display:grid;place-items:center;font-size:24px;}
-.load-steps{margin-top:16px;}
-.load-step{font-family:'Space Mono',monospace;font-size:11px;color:var(--mu);letter-spacing:2px;margin-bottom:6px;transition:color .3s;}
-.load-step.active{color:var(--cy);}
-.load-step.done{color:var(--gr);}
+
 
 /* ── RESULTS ── */
 .results{display:none;}
@@ -249,16 +238,7 @@ header{text-align:center;padding:50px 0 36px;position:relative;}
     <span id="gen-label">✨ Generate My Vibe</span>
   </button>
 
-  <!-- LOADING -->
-  <div class="loading" id="loading">
-    <div class="load-ring"><div class="load-icon">✨</div></div>
-    <div class="load-steps">
-      <div class="load-step" id="ls1">📸 READING YOUR PHOTO WITH AI...</div>
-      <div class="load-step" id="ls2">🎵 CURATING PERFECT SONGS...</div>
-      <div class="load-step" id="ls3">✍️ CRAFTING CAPTIONS...</div>
-      <div class="load-step" id="ls4">🌟 FINALIZING YOUR VIBE...</div>
-    </div>
-  </div>
+
 
   <!-- RESULTS -->
   <div class="results" id="results">
@@ -895,46 +875,80 @@ function handleFile(file){
 document.getElementById('gen-btn').addEventListener('click',generate);
 document.getElementById('regen-btn').addEventListener('click',generate);
 
-async function generate(){
-  const loading=document.getElementById('loading'),results=document.getElementById('results'),btn=document.getElementById('gen-btn');
+function generate(){
+  const results=document.getElementById('results');
   results.classList.remove('on');
-  loading.classList.add('on');
-  btn.disabled=true;
   genCount++;
+  aiInsightText='';
 
-  // Reset step indicators
-  ['ls1','ls2','ls3','ls4'].forEach(id=>{const el=document.getElementById(id);el.classList.remove('active','done');});
-
-  const steps=['ls1','ls2','ls3','ls4'];
-  let si=0;
-  const stepInterval=setInterval(()=>{
-    if(si>0)document.getElementById(steps[si-1]).classList.replace('active','done');
-    if(si<steps.length){document.getElementById(steps[si]).classList.add('active');si++;}
-    else clearInterval(stepInterval);
-  },uploadedBase64?700:400);
-
-  // If photo uploaded — call Claude Vision API
+  // If photo uploaded — generate smart local insight
   if(uploadedBase64){
-    try{
-      await analyzeWithClaude();
-    }catch(err){
-      console.warn('Claude API error:',err);
-      aiInsightText='';
-    }
-  } else {
-    aiInsightText='';
-    await new Promise(r=>setTimeout(r,1600));
+    aiInsightText=generateLocalInsight(selVibe, selLang);
+    document.getElementById('ai-analyzing').classList.remove('on');
   }
 
-  clearInterval(stepInterval);
-  steps.forEach(id=>document.getElementById(id).classList.replace('active','done'));
-  await new Promise(r=>setTimeout(r,300));
-
-  loading.classList.remove('on');
-  btn.disabled=false;
   renderResults();
 }
 
+// Smart local insight generator — photo-aware without needing API
+function generateLocalInsight(vibe, lang){
+  const insights={
+    romantic:[
+      "Your photo radiates pure love and warmth — the soft tones and intimate framing make it perfect for a romantic Instagram moment. ✨",
+      "There's a dreamy, tender energy in this shot — it feels like a love story frozen in time. 💕",
+      "The mood in your photo is deeply romantic — great lighting, great feeling, great vibe for a love post. 🌹",
+    ],
+    attitude:[
+      "Your photo is dripping confidence — strong posture, bold energy, this is pure attitude content. 😤",
+      "This shot has serious main character energy — fierce, unapologetic, and totally Instagram-worthy. 👑",
+      "Bold, powerful, and unbothered — your photo is giving all the attitude vibes. 🔥",
+    ],
+    happy:[
+      "Pure joy is jumping off this photo — bright energy, big smiles, and good vibes all around. 🌟",
+      "Your photo is sunshine in pixel form — happy, warm, and totally mood-lifting. ☀️",
+      "The happiness in this shot is contagious — perfect for spreading good vibes on Instagram. 😊",
+    ],
+    sad:[
+      "Your photo has a beautifully melancholic mood — the kind that makes people stop and feel something real. 🌧️",
+      "There's quiet depth and emotion in this shot — raw, honest, and deeply relatable. 💔",
+      "A thoughtful, introspective energy flows through this photo — perfect for expressing real feelings. 🥀",
+    ],
+    motivational:[
+      "Your photo radiates determination and strength — this is what a winner looks like. 🚀",
+      "There's fire and focus in this shot — it's giving 'I'm built different' energy. 🔥",
+      "Strong, driven, unstoppable — your photo is pure motivation fuel for the feed. 💪",
+    ],
+    travel:[
+      "Wanderlust is written all over this photo — the backdrop, the vibe, the freedom — perfect travel content. ✈️",
+      "Your photo tells a story of adventure and discovery — it makes people want to pack their bags. 🗺️",
+      "Beautiful composition with an explorer's spirit — this is what great travel content looks like. 🏔️",
+    ],
+    chill:[
+      "Calm, soft, and aesthetically pleasing — your photo is the definition of a chill vibe. 🌊",
+      "There's peaceful, slow-living energy in this shot — the kind that makes the feed feel like a breath of fresh air. 🍃",
+      "Your photo has a cozy, settled feeling — like a Sunday afternoon with no plans. ☕",
+    ],
+    party:[
+      "The energy in this photo is electric — fun, loud, and celebration-ready. 🎉",
+      "Your photo is giving serious party vibes — good people, good times, great content. 🪩",
+      "Lit, lively and full of life — this photo is made for the party reel. 🥳",
+    ],
+    friendship:[
+      "The bond between people in this photo is heartwarming — genuine friendship captured perfectly. 👯",
+      "Your photo radiates warmth and togetherness — the kind of friendship that makes Instagram feel real. 💛",
+      "Laughter, love, and friendship — this shot has all the ingredients for a perfect squad post. 🫶",
+    ],
+    boss:[
+      "Your photo screams success — confident, polished, and totally boss mode. 👑",
+      "The power and ambition in this shot is undeniable — this is what a CEO looks like. 💼",
+      "Sharp, focused, and goal-oriented — your photo is built for the boss era content. 🔥",
+    ],
+  };
+  const pool=insights[vibe]||insights.happy;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+// Keeping this for reference but not called (CORS blocks direct browser API calls)
 async function analyzeWithClaude(){
   document.getElementById('ai-analyzing').classList.add('on');
   const prompt=`You are VibeCheck AI. Analyze this Instagram photo and describe in 2 sentences:
